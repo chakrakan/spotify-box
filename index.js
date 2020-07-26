@@ -6,10 +6,11 @@ const {
   GIST_ID: gistId,
   GITHUB_TOKEN: githubToken,
   SPOTIFY_CLIENT_SECRET: spotifyClientSecret,
-  SPOTIFY_CLIENT_ID: spotifyClientId
+  SPOTIFY_CLIENT_ID: spotifyClientId,
+  SPOTIFY_CODE: spotifyCode
 } = process.env;
 
-const API_BASE = "https://api.spotify.com";
+const API_BASE = "https://api.spotify.com/v1";
 const AUTH_CACHE_FILE = "spotify-auth.json";
 
 const octokit = new Octokit({
@@ -17,18 +18,23 @@ const octokit = new Octokit({
 });
 
 async function main() {
-  const stats = await getspotifyStats();
+  const stats = await getspotifyToken();
   await updateGist(stats);
 }
 
 /**
- * Updates cached spotify authentication tokens if necessary
+ * Updates cached spotify authentication tokens when necessary (1 hr expiriy)
  */
 async function getSpotifyToken() {
   // default env vars go in here (temp cache)
   let cache = {
     spotifyRefreshToken: spotifyRefreshToken
   };
+
+  const auth = spotifyClientId + ":" + spotifyClientSecret;
+  const buff = new Buffer(auth);
+  const base64auth = buff.toString("base64");
+
   // try to read cache from disk if already exists
   try {
     const jsonStr = fs.readFileSync(AUTH_CACHE_FILE);
@@ -42,20 +48,21 @@ async function getSpotifyToken() {
   console.debug(`ref: ${cache.spotifyRefreshToken.substring(0, 6)}`);
 
   // get new tokens
-  const data = await fetch("https://accounts.spotify.com/authorize", {
-    method: "get",
+  const data = await fetch("https://accounts.spotify.com/api/token", {
+    method: "post",
     body: JSON.stringify({
-      grant_type: "refresh_token",
-      client_id: spotifyClientId,
-      client_secret: spotifyClientSecret,
-      refresh_token: cache.spotifyRefreshToken
+      grant_type: "authorization_code",
+      code: spotifyCode,
+      redirect_uri: "http://localhost/"
     }),
-    headers: { "Content-Type": "application/json" }
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Authorization: "Basic " + base64auth
+    }
   })
     .then(data => data.json())
     .catch(error => console.debug(error));
 
-  console.debug(data);
   cache.spotifyAccessToken = data.access_token;
   cache.spotifyRefreshToken = data.refresh_token;
   console.debug(`acc: ${cache.spotifyAccessToken.substring(0, 6)}`);
