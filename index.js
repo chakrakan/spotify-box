@@ -138,7 +138,9 @@ async function updateGist(data) {
     songListenCount[a] > songListenCount[b] ? a : b
   );
 
-  lines += `🎧 On Repeat Recently: ${songOnRepeat}\n\n`;
+  lines += `🎧 On Repeat Recently: ${
+    songListenCount[songOnRepeat] < 3 ? songOnRepeat : "Nothing..."
+  }\n\n`;
   lines += songList.join("\n");
 
   try {
