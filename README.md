@@ -33,7 +33,7 @@ https://accounts.spotify.com/authorize?client_id=<YOUR-CLIENT-ID-HERE>&response_
 5. Go to Project Settings > Environment Variables
 6. Add the following environment variables:
 
-- GIST_ID: The ID portion from your gist url https://gist.github.com/<github username>/6d5f84419863089a167387da62dd7081.
+- GIST_ID: The ID portion from your gist url `https://gist.github.com/<github username>/`**`6d5f84419863089a167387da62dd7081`**.
 - GITHUB_TOKEN: The GitHub token generated above.
 - SPOTIFY_CLIENT_ID: Your Spotify application client id
 - SPOTIFY_CLIENT_SECRET: Your Spotify application client secret
