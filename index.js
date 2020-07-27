@@ -139,7 +139,7 @@ async function updateGist(data) {
   );
 
   lines += `🎧 On Repeat Recently: ${
-    songListenCount[songOnRepeat] < 3 ? songOnRepeat : "Nothing..."
+    songListenCount[songOnRepeat] > 2 ? songOnRepeat : "Nothing..."
   }\n\n`;
   lines += songList.join("\n");
 
