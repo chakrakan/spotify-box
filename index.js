@@ -91,7 +91,6 @@ const encodeFormData = data => {
 
 /**
  * Fetches your data from the spotify API
- * The distance returned by the API is in meters
  */
 async function getSpotifyData() {
   // recent 20 played data (add other endpoints for more info as needed)
