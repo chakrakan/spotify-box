@@ -1,4 +1,4 @@
-const Octokit = require("@octokit/rest");
+const { Octokit } = require("@octokit/rest");
 const fetch = require("node-fetch");
 const fs = require("fs");
 
@@ -6,13 +6,12 @@ const {
   GIST_ID: gistId,
   GITHUB_TOKEN: githubToken,
   SPOTIFY_CLIENT_SECRET: spotifyClientSecret,
-  SPOTIFY_CLIENT_ID: spotifyClientId,
-  SPOTIFY_CODE: spotifyCode
+  SPOTIFY_CLIENT_ID: spotifyClientId
 } = process.env;
 
+let spotifyCode = process.env.SPOTIFY_CODE;
+
 const API_BASE = "https://api.spotify.com/v1";
-const scopes = "user-top-read%20user-read-recently-played";
-const AUTH_URL = `https://accounts.spotify.com/authorize?client_id=${spotifyClientId}&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%2F&scope=${scopes}`;
 const AUTH_CACHE_FILE = "spotify-auth.json";
 
 const octokit = new Octokit({
@@ -20,8 +19,8 @@ const octokit = new Octokit({
 });
 
 async function main() {
-  const stats = await getspotifyToken();
-  await updateGist(stats);
+  const spotifyData = await getSpotifyData();
+  await updateGist(spotifyData);
 }
 
 /**
@@ -29,19 +28,12 @@ async function main() {
  */
 async function getSpotifyToken() {
   // default env vars go in here (temp cache)
-  let cache = {
-    spotifyRefreshToken: spotifyRefreshToken
+  let cache = {};
+  let formData = {
+    grant_type: "authorization_code",
+    code: spotifyCode,
+    redirect_uri: "http://localhost/"
   };
-
-  const authCode = await fetch(AUTH_URL, {
-    method: "get"
-  })
-    .then(data => data.json())
-    .catch(error => console.debug(error));
-
-  const auth = spotifyClientId + ":" + spotifyClientSecret;
-  const buff = new Buffer(auth);
-  const base64auth = buff.toString("base64");
 
   // try to read cache from disk if already exists
   try {
@@ -53,28 +45,37 @@ async function getSpotifyToken() {
   } catch (error) {
     console.log(error);
   }
-  console.debug(`ref: ${cache.spotifyRefreshToken.substring(0, 6)}`);
+
+  if (cache.spotifyRefreshToken) {
+    console.debug(`ref: ${cache.spotifyRefreshToken.substring(0, 6)}`);
+    formData = {
+      grant_type: "refresh_token",
+      refresh_token: cache.spotifyRefreshToken
+    };
+  }
 
   // get new tokens
   const data = await fetch("https://accounts.spotify.com/api/token", {
     method: "post",
-    body: JSON.stringify({
-      grant_type: "authorization_code",
-      code: spotifyCode,
-      redirect_uri: "http://localhost/"
-    }),
+    body: encodeFormData(formData),
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
-      Authorization: "Basic " + base64auth
+      Authorization:
+        "Basic " +
+        new Buffer.from(spotifyClientId + ":" + spotifyClientSecret).toString(
+          "base64"
+        )
     }
   })
     .then(data => data.json())
     .catch(error => console.debug(error));
-
+  console.debug(data);
   cache.spotifyAccessToken = data.access_token;
-  cache.spotifyRefreshToken = data.refresh_token;
+  if (data.refresh_token) {
+    cache.spotifyRefreshToken = data.refresh_token;
+    console.debug(`ref: ${cache.spotifyRefreshToken.substring(0, 6)}`);
+  }
   console.debug(`acc: ${cache.spotifyAccessToken.substring(0, 6)}`);
-  console.debug(`ref: ${cache.spotifyRefreshToken.substring(0, 6)}`);
 
   // save to disk
   fs.writeFileSync(AUTH_CACHE_FILE, JSON.stringify(cache));
@@ -82,19 +83,38 @@ async function getSpotifyToken() {
   return cache.spotifyAccessToken;
 }
 
+const encodeFormData = data => {
+  return Object.keys(data)
+    .map(key => encodeURIComponent(key) + "=" + encodeURIComponent(data[key]))
+    .join("&");
+};
+
 /**
  * Fetches your data from the spotify API
  * The distance returned by the API is in meters
  */
-async function getSpotifyStats() {
-  const API = `${API_BASE}${spotifyClientId}/stats?access_token=${await getSpotifyToken()}`;
+async function getSpotifyData() {
+  // recent 20 played data (add other endpoints for more info as needed)
+  const recentlyPlayedData = await fetch(
+    `${API_BASE}/me/player/recently-played?limit=20`,
+    {
+      method: "get",
+      headers: {
+        Authorization: "Bearer " + (await getSpotifyToken())
+      }
+    }
+  )
+    .then(data => data.json())
+    .catch(error => console.debug(error));
 
-  const json = await fetch(API).then(data => data.json());
-  return json;
+  return recentlyPlayedData;
 }
 
 async function updateGist(data) {
   let gist;
+  let songs = [];
+  let lines = "";
+
   try {
     gist = await octokit.gists.get({ gist_id: gistId });
   } catch (error) {
@@ -102,99 +122,33 @@ async function updateGist(data) {
     throw error;
   }
 
-  // Used to index the API response
-  // Add more keys to map from the resp
-  const keyMappings = {
-    Running: {
-      ytd_key: "ytd_run_totals"
-    },
-    Swimming: {
-      ytd_key: "ytd_swim_totals"
-    },
-    Cycling: {
-      ytd_key: "ytd_ride_totals"
-    }
-  };
-
-  let totalDistance = 0;
-
-  let lines = Object.keys(keyMappings)
-    .map(activityType => {
-      // Store the activity name and distance
-      const { ytd_key } = keyMappings[activityType];
-      try {
-        const { distance, moving_time, count } = data[ytd_key];
-        totalDistance += distance;
-        return {
-          name: activityType,
-          pace: (distance * 3600) / (moving_time ? moving_time : 1),
-          distance,
-          count
-        };
-      } catch (error) {
-        console.error(`Unable to get distance\n${error}`);
-        return {
-          name: activityType,
-          pace: 0,
-          distance: 0,
-          count: 0
-        };
-      }
-    })
-    .map(activity => {
-      // Calculate the percentages and bar charts for the 3 activities
-      const percent = (activity["distance"] / totalDistance) * 100;
-      const pacePH = formatDistance(activity["pace"]);
-      const pace = pacePH.substring(0, pacePH.length - 3); // strip unit
-      const count = activity["count"];
-      return {
-        ...activity,
-        distance: formatDistance(activity["distance"]),
-        pace: `${pace}/h`,
-        barChart: generateBarChart(percent, 19),
-        count: count
-      };
-    })
-    .map(activity => {
-      // Format the data to be displayed in the Gist
-      const { name, distance, pace, barChart, count } = activity;
-      return `${name.padEnd(13)} ${distance.padStart(
-        10
-      )} ${barChart} ${pace.padStart(7)} ${count} times`;
-    });
-
-  // Last 4 weeks
-  let monthDistance = 0;
-  let monthTime = 0;
-  let monthAchievements = 0;
-  for (let [key, value] of Object.entries(data)) {
-    if (key.startsWith("recent_") && key.endsWith("_totals")) {
-      monthDistance += value["distance"];
-      monthTime += value["moving_time"];
-      monthAchievements += value["achievement_count"];
-    }
-  }
-  lines.push(
-    `\nRecenlty, I've covered ${formatDistance(
-      monthDistance
-    )} across all activities, receiving ${
-      monthAchievements
-        ? `${monthAchievements} achievement${monthAchievements > 1 ? "s" : ""}`
-        : ""
-    } over ${`${(monthTime / 3600).toFixed(0)}`}h:${(monthTime / 60).toFixed(
-      0
-    ) % 60}m`
+  data.items.forEach(item =>
+    songs.push(`${item.track.name} - ${item.track.artists[0].name}`)
   );
 
+  console.debug(songs);
+
+  const songListenCount = songs.reduce((prev, curr) => {
+    prev[curr] = (prev[curr] || 0) + 1;
+    return prev;
+  }, {});
+
+  const songList = Object.keys(songListenCount);
+  const songOnRepeat = Object.keys(songListenCount).reduce((a, b) =>
+    songListenCount[a] > songListenCount[b] ? a : b
+  );
+
+  lines += `🎧 On Repeat Recently: ${songOnRepeat}\n\n`;
+  lines += songList.join("\n");
+
   try {
-    // Get original filename to update that same file
     const filename = Object.keys(gist.data.files)[0];
     await octokit.gists.update({
       gist_id: gistId,
       files: {
         [filename]: {
-          filename: `Kan's spotify Activity`,
-          content: lines.join("\n")
+          filename: `Last heard on Spotify`,
+          content: lines
         }
       }
     });
@@ -202,42 +156,6 @@ async function updateGist(data) {
     console.error(`Unable to update gist\n${error}`);
     throw error;
   }
-}
-
-function generateBarChart(percent, size) {
-  const syms = "░▏▎▍▌▋▊▉█";
-
-  const frac = Math.floor((size * 8 * percent) / 100);
-  const barsFull = Math.floor(frac / 8);
-  if (barsFull >= size) {
-    return syms.substring(8, 9).repeat(size);
-  }
-  const semi = frac % 8;
-
-  return [syms.substring(8, 9).repeat(barsFull), syms.substring(semi, semi + 1)]
-    .join("")
-    .padEnd(size, syms.substring(0, 1));
-}
-
-function formatDistance(distance) {
-  switch (units) {
-    case "meters":
-      return `${metersToKm(distance)} km`;
-    case "miles":
-      return `${metersToMiles(distance)} mi`;
-    default:
-      return `${metersToKm(distance)} km`;
-  }
-}
-
-function metersToMiles(meters) {
-  const CONVERSION_CONSTANT = 0.000621371192;
-  return (meters * CONVERSION_CONSTANT).toFixed(2);
-}
-
-function metersToKm(meters) {
-  const CONVERSION_CONSTANT = 0.001;
-  return (meters * CONVERSION_CONSTANT).toFixed(2);
 }
 
 (async () => {
