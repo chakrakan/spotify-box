@@ -6,8 +6,7 @@ const {
   GIST_ID: gistId,
   GITHUB_TOKEN: githubToken,
   SPOTIFY_CLIENT_SECRET: spotifyClientSecret,
-  SPOTIFY_CLIENT_ID: spotifyClientId,
-  SPOTIFY_CODE: spotifyCode
+  SPOTIFY_CLIENT_ID: spotifyClientId
 } = process.env;
 
 const API_BASE = "https://api.spotify.com/v1";
@@ -82,163 +81,163 @@ async function getSpotifyToken() {
   return cache.spotifyAccessToken;
 }
 
-/**
- * Fetches your data from the spotify API
- * The distance returned by the API is in meters
- */
-async function getSpotifyStats() {
-  const API = `${API_BASE}${spotifyClientId}/stats?access_token=${await getSpotifyToken()}`;
+// /**
+//  * Fetches your data from the spotify API
+//  * The distance returned by the API is in meters
+//  */
+// async function getSpotifyStats() {
+//   const API = `${API_BASE}${spotifyClientId}/stats?access_token=${await getSpotifyToken()}`;
 
-  const json = await fetch(API).then(data => data.json());
-  return json;
-}
+//   const json = await fetch(API).then(data => data.json());
+//   return json;
+// }
 
-async function updateGist(data) {
-  let gist;
-  try {
-    gist = await octokit.gists.get({ gist_id: gistId });
-  } catch (error) {
-    console.error(`Unable to get gist\n${error}`);
-    throw error;
-  }
+// async function updateGist(data) {
+//   let gist;
+//   try {
+//     gist = await octokit.gists.get({ gist_id: gistId });
+//   } catch (error) {
+//     console.error(`Unable to get gist\n${error}`);
+//     throw error;
+//   }
 
-  // Used to index the API response
-  // Add more keys to map from the resp
-  const keyMappings = {
-    Running: {
-      ytd_key: "ytd_run_totals"
-    },
-    Swimming: {
-      ytd_key: "ytd_swim_totals"
-    },
-    Cycling: {
-      ytd_key: "ytd_ride_totals"
-    }
-  };
+//   // Used to index the API response
+//   // Add more keys to map from the resp
+//   const keyMappings = {
+//     Running: {
+//       ytd_key: "ytd_run_totals"
+//     },
+//     Swimming: {
+//       ytd_key: "ytd_swim_totals"
+//     },
+//     Cycling: {
+//       ytd_key: "ytd_ride_totals"
+//     }
+//   };
 
-  let totalDistance = 0;
+//   let totalDistance = 0;
 
-  let lines = Object.keys(keyMappings)
-    .map(activityType => {
-      // Store the activity name and distance
-      const { ytd_key } = keyMappings[activityType];
-      try {
-        const { distance, moving_time, count } = data[ytd_key];
-        totalDistance += distance;
-        return {
-          name: activityType,
-          pace: (distance * 3600) / (moving_time ? moving_time : 1),
-          distance,
-          count
-        };
-      } catch (error) {
-        console.error(`Unable to get distance\n${error}`);
-        return {
-          name: activityType,
-          pace: 0,
-          distance: 0,
-          count: 0
-        };
-      }
-    })
-    .map(activity => {
-      // Calculate the percentages and bar charts for the 3 activities
-      const percent = (activity["distance"] / totalDistance) * 100;
-      const pacePH = formatDistance(activity["pace"]);
-      const pace = pacePH.substring(0, pacePH.length - 3); // strip unit
-      const count = activity["count"];
-      return {
-        ...activity,
-        distance: formatDistance(activity["distance"]),
-        pace: `${pace}/h`,
-        barChart: generateBarChart(percent, 19),
-        count: count
-      };
-    })
-    .map(activity => {
-      // Format the data to be displayed in the Gist
-      const { name, distance, pace, barChart, count } = activity;
-      return `${name.padEnd(13)} ${distance.padStart(
-        10
-      )} ${barChart} ${pace.padStart(7)} ${count} times`;
-    });
+//   let lines = Object.keys(keyMappings)
+//     .map(activityType => {
+//       // Store the activity name and distance
+//       const { ytd_key } = keyMappings[activityType];
+//       try {
+//         const { distance, moving_time, count } = data[ytd_key];
+//         totalDistance += distance;
+//         return {
+//           name: activityType,
+//           pace: (distance * 3600) / (moving_time ? moving_time : 1),
+//           distance,
+//           count
+//         };
+//       } catch (error) {
+//         console.error(`Unable to get distance\n${error}`);
+//         return {
+//           name: activityType,
+//           pace: 0,
+//           distance: 0,
+//           count: 0
+//         };
+//       }
+//     })
+//     .map(activity => {
+//       // Calculate the percentages and bar charts for the 3 activities
+//       const percent = (activity["distance"] / totalDistance) * 100;
+//       const pacePH = formatDistance(activity["pace"]);
+//       const pace = pacePH.substring(0, pacePH.length - 3); // strip unit
+//       const count = activity["count"];
+//       return {
+//         ...activity,
+//         distance: formatDistance(activity["distance"]),
+//         pace: `${pace}/h`,
+//         barChart: generateBarChart(percent, 19),
+//         count: count
+//       };
+//     })
+//     .map(activity => {
+//       // Format the data to be displayed in the Gist
+//       const { name, distance, pace, barChart, count } = activity;
+//       return `${name.padEnd(13)} ${distance.padStart(
+//         10
+//       )} ${barChart} ${pace.padStart(7)} ${count} times`;
+//     });
 
-  // Last 4 weeks
-  let monthDistance = 0;
-  let monthTime = 0;
-  let monthAchievements = 0;
-  for (let [key, value] of Object.entries(data)) {
-    if (key.startsWith("recent_") && key.endsWith("_totals")) {
-      monthDistance += value["distance"];
-      monthTime += value["moving_time"];
-      monthAchievements += value["achievement_count"];
-    }
-  }
-  lines.push(
-    `\nRecenlty, I've covered ${formatDistance(
-      monthDistance
-    )} across all activities, receiving ${
-      monthAchievements
-        ? `${monthAchievements} achievement${monthAchievements > 1 ? "s" : ""}`
-        : ""
-    } over ${`${(monthTime / 3600).toFixed(0)}`}h:${(monthTime / 60).toFixed(
-      0
-    ) % 60}m`
-  );
+//   // Last 4 weeks
+//   let monthDistance = 0;
+//   let monthTime = 0;
+//   let monthAchievements = 0;
+//   for (let [key, value] of Object.entries(data)) {
+//     if (key.startsWith("recent_") && key.endsWith("_totals")) {
+//       monthDistance += value["distance"];
+//       monthTime += value["moving_time"];
+//       monthAchievements += value["achievement_count"];
+//     }
+//   }
+//   lines.push(
+//     `\nRecenlty, I've covered ${formatDistance(
+//       monthDistance
+//     )} across all activities, receiving ${
+//       monthAchievements
+//         ? `${monthAchievements} achievement${monthAchievements > 1 ? "s" : ""}`
+//         : ""
+//     } over ${`${(monthTime / 3600).toFixed(0)}`}h:${(monthTime / 60).toFixed(
+//       0
+//     ) % 60}m`
+//   );
 
-  try {
-    // Get original filename to update that same file
-    const filename = Object.keys(gist.data.files)[0];
-    await octokit.gists.update({
-      gist_id: gistId,
-      files: {
-        [filename]: {
-          filename: `Kan's spotify Activity`,
-          content: lines.join("\n")
-        }
-      }
-    });
-  } catch (error) {
-    console.error(`Unable to update gist\n${error}`);
-    throw error;
-  }
-}
+//   try {
+//     // Get original filename to update that same file
+//     const filename = Object.keys(gist.data.files)[0];
+//     await octokit.gists.update({
+//       gist_id: gistId,
+//       files: {
+//         [filename]: {
+//           filename: `Kan's spotify Activity`,
+//           content: lines.join("\n")
+//         }
+//       }
+//     });
+//   } catch (error) {
+//     console.error(`Unable to update gist\n${error}`);
+//     throw error;
+//   }
+// }
 
-function generateBarChart(percent, size) {
-  const syms = "░▏▎▍▌▋▊▉█";
+// function generateBarChart(percent, size) {
+//   const syms = "░▏▎▍▌▋▊▉█";
 
-  const frac = Math.floor((size * 8 * percent) / 100);
-  const barsFull = Math.floor(frac / 8);
-  if (barsFull >= size) {
-    return syms.substring(8, 9).repeat(size);
-  }
-  const semi = frac % 8;
+//   const frac = Math.floor((size * 8 * percent) / 100);
+//   const barsFull = Math.floor(frac / 8);
+//   if (barsFull >= size) {
+//     return syms.substring(8, 9).repeat(size);
+//   }
+//   const semi = frac % 8;
 
-  return [syms.substring(8, 9).repeat(barsFull), syms.substring(semi, semi + 1)]
-    .join("")
-    .padEnd(size, syms.substring(0, 1));
-}
+//   return [syms.substring(8, 9).repeat(barsFull), syms.substring(semi, semi + 1)]
+//     .join("")
+//     .padEnd(size, syms.substring(0, 1));
+// }
 
-function formatDistance(distance) {
-  switch (units) {
-    case "meters":
-      return `${metersToKm(distance)} km`;
-    case "miles":
-      return `${metersToMiles(distance)} mi`;
-    default:
-      return `${metersToKm(distance)} km`;
-  }
-}
+// function formatDistance(distance) {
+//   switch (units) {
+//     case "meters":
+//       return `${metersToKm(distance)} km`;
+//     case "miles":
+//       return `${metersToMiles(distance)} mi`;
+//     default:
+//       return `${metersToKm(distance)} km`;
+//   }
+// }
 
-function metersToMiles(meters) {
-  const CONVERSION_CONSTANT = 0.000621371192;
-  return (meters * CONVERSION_CONSTANT).toFixed(2);
-}
+// function metersToMiles(meters) {
+//   const CONVERSION_CONSTANT = 0.000621371192;
+//   return (meters * CONVERSION_CONSTANT).toFixed(2);
+// }
 
-function metersToKm(meters) {
-  const CONVERSION_CONSTANT = 0.001;
-  return (meters * CONVERSION_CONSTANT).toFixed(2);
-}
+// function metersToKm(meters) {
+//   const CONVERSION_CONSTANT = 0.001;
+//   return (meters * CONVERSION_CONSTANT).toFixed(2);
+// }
 
 (async () => {
   await main();
