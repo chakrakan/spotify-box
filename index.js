@@ -94,7 +94,7 @@ const encodeFormData = data => {
  * The distance returned by the API is in meters
  */
 async function getSpotifyData() {
-  // recent 10 played data (add other endpoints for more info as needed)
+  // recent 20 played data (add other endpoints for more info as needed)
   const recentlyPlayedData = await fetch(
     `${API_BASE}/me/player/recently-played?limit=20`,
     {
@@ -138,7 +138,7 @@ async function updateGist(data) {
     songListenCount[a] > songListenCount[b] ? a : b
   );
 
-  lines += `🎧 On Repeat: ${songOnRepeat}\n\n`;
+  lines += `🎧 On Repeat Recently: ${songOnRepeat}\n\n`;
   lines += songList.join("\n");
 
   try {
