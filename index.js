@@ -11,6 +11,8 @@ const {
 } = process.env;
 
 const API_BASE = "https://api.spotify.com/v1";
+const scopes = "user-top-read%20user-read-recently-played";
+const AUTH_URL = `https://accounts.spotify.com/authorize?client_id=${spotifyClientId}&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%2F&scope=${scopes}`;
 const AUTH_CACHE_FILE = "spotify-auth.json";
 
 const octokit = new Octokit({
@@ -30,6 +32,12 @@ async function getSpotifyToken() {
   let cache = {
     spotifyRefreshToken: spotifyRefreshToken
   };
+
+  const authCode = await fetch(AUTH_URL, {
+    method: "get"
+  })
+    .then(data => data.json())
+    .catch(error => console.debug(error));
 
   const auth = spotifyClientId + ":" + spotifyClientSecret;
   const buff = new Buffer(auth);
