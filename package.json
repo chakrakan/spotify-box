@@ -8,14 +8,14 @@
     "start": "node -r dotenv/config index.js"
   },
   "dependencies": {
-    "@octokit/rest": "^16.28.2",
-    "dotenv": "^8.0.0",
-    "node-fetch": "^2.6.0"
+    "@octokit/rest": "16.43.2",
+    "dotenv": "8.2.0",
+    "node-fetch": "2.6.0"
   },
   "devDependencies": {
-    "husky": "^2.4.1",
-    "prettier": "^1.18.2",
-    "pretty-quick": "^1.11.1"
+    "husky": "2.7.0",
+    "prettier": "1.19.1",
+    "pretty-quick": "1.11.1"
   },
   "husky": {
     "hooks": {
