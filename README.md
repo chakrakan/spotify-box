@@ -27,11 +27,12 @@ https://accounts.spotify.com/authorize?client_id=<YOUR-CLIENT-ID-HERE>&response_
 ### Project Setup
 
 1. Fork this repo
-2. Log into CircleCI with your GitHub (https://circleci.com/vcs-authorize/)
-3. Click on "Add Projects" on the sidebar
-4. Set up a project with the newly created fork
-5. Go to Project Settings > Environment Variables
-6. Add the following environment variables:
+2. Modify this [line](https://github.com/chakrakan/spotify-box/blob/6500aa6008b125ac982dc3726e9cfa7d278a1c88/index.js#L151) to your name or anything you want to title the gist as
+3. Log into CircleCI with your GitHub (https://circleci.com/vcs-authorize/)
+4. Click on "Add Projects" on the sidebar
+5. Set up a project with the newly created fork
+6. Go to Project Settings > Environment Variables
+7. Add the following environment variables:
 
 - GIST_ID: The ID portion from your gist url `https://gist.github.com/<github username>/`**`6d5f84419863089a167387da62dd7081`**.
 - GITHUB_TOKEN: The GitHub token generated above.
