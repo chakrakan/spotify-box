@@ -4,6 +4,8 @@
   <p align="center">🎵 Update a gist to contain your recently played songs on Spotify</p>
 </p>
 
+[![Spotify Box](https://circleci.com/gh/chakrakan/spotify-box.svg?style=svg)](https://github.com/chakrakan/spotify-box)
+
 ## Setup
 
 ### Prep Work
