@@ -8,7 +8,7 @@
     "start": "node -r dotenv/config index.js"
   },
   "dependencies": {
-    "@octokit/rest": "18.2.0",
+    "@octokit/rest": "18.2.1",
     "dotenv": "8.2.0",
     "node-fetch": "2.6.1"
   },
