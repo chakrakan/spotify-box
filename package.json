@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@octokit/rest": "18.5.3",
-    "dotenv": "8.2.0",
+    "dotenv": "9.0.0",
     "node-fetch": "2.6.1"
   },
   "devDependencies": {
