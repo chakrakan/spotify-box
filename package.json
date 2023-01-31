@@ -10,7 +10,7 @@
   "dependencies": {
     "@octokit/rest": "19.0.5",
     "dotenv": "16.0.3",
-    "node-fetch": "2.6.7"
+    "node-fetch": "2.6.9"
   },
   "devDependencies": {
     "husky": "8.0.3",
